@@ -226,6 +226,10 @@ export default function Me({
     isProfileMissing,
   } = useAppSelector((state) => state.user);
   const targetEmployeeId = employeeId ?? userInfo?.employeeId;
+  // Personal info (NIC, DOB, address, emergency contacts, ...) is admin/self only.
+  // `readOnly` here means "viewing someone else's record" (self-service is never read-only),
+  // so a lead-only viewer of a subordinate falls through to false and never fetches it.
+  const canViewPersonalInfo = !readOnly || roles.includes(Role.ADMIN);
   const { employee, state: employeeState } = useAppSelector(
     (state) => state.employee,
   );
@@ -323,8 +327,10 @@ export default function Me({
     dispatch(resetEmployee());
     dispatch(resetPersonalInfo());
     dispatch(fetchEmployee(targetEmployeeId));
-    dispatch(fetchEmployeePersonalInfo(targetEmployeeId));
-  }, [targetEmployeeId, dispatch]);
+    if (canViewPersonalInfo) {
+      dispatch(fetchEmployeePersonalInfo(targetEmployeeId));
+    }
+  }, [targetEmployeeId, canViewPersonalInfo, dispatch]);
 
   useEffect(() => {
     return () => {
@@ -1091,6 +1097,7 @@ export default function Me({
           )}
         </AccordionDetails>
       </Accordion>
+      {canViewPersonalInfo && (
       <Accordion
         sx={{
           borderRadius: 2,
@@ -1641,6 +1648,7 @@ export default function Me({
           )}
         </AccordionDetails>
       </Accordion>
+      )}
 
       <Accordion
         expanded={historyExpanded}

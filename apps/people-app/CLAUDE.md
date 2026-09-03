@@ -126,7 +126,7 @@ Runtime config injected via `window.config`. Required keys: `CLIENT_ID`, `SIGN_I
 
 ### Backend privilege levels
 
-The backend issues three privilege levels, returned as an array in the `/user-info` response:
+The backend issues privilege levels, returned as an array in the `/user-info` response:
 
 | Constant | Value | How it is granted |
 |---|---|---|
@@ -136,6 +136,15 @@ The backend issues three privilege levels, returned as an array in the `/user-in
 | `ADMIN_PRIVILEGE` | 999 | IAM group membership (`ADMIN_ROLE` in `Config.toml`) |
 
 `LEAD_ROLE` is **not** configured in `Config.toml`; lead status is resolved at request time from the DB.
+
+**Personal information is not covered by the lead/subordinate relationship.** `GET
+/employees/[id]/personal-info` (NIC, DOB, gender, nationality, personal email/phone, resident
+number, address, emergency contacts) and the personal-info-sourced events in `GET
+/employees/[id]/history` are restricted to `ADMIN_ROLE` or the employee themselves — a lead
+viewing a subordinate gets a 403 on personal-info, and no personal-info events in that
+subordinate's history, even though they can see the subordinate's job record
+(`GET /employees/[id]`) and job-field history. See `service.bal`'s `personal-info` and `history`
+resource functions, and `projectHistoryEvents` in `utils.bal`.
 
 For employee-list endpoints the backend checks `leadOnly` and `directReports` in the request payload. The two flags operate independently:
 
@@ -165,7 +174,7 @@ A user may hold more than one role simultaneously (e.g., `[EMPLOYEE, LEAD]` or `
 | `/employees/my-team` *(nested)* | `LEAD` | — | Admin+Lead (nested under Employees sidebar group) |
 | `/employees/my-team` *(top-level)* | `LEAD` | `ADMIN` | Lead-only users (shown as top-level sidebar item) |
 | `/onboarding` | `ADMIN` | — | Admins |
-| `/employees/:employeeId` | `ADMIN, LEAD` | — | Admins and Leads (not in sidebar) |
+| `/employees/:employeeId` | `ADMIN, LEAD` | — | Admins and Leads (not in sidebar). A lead sees the job record; the Personal Information accordion (and its fetch) only render for admin, per the backend restriction above. |
 | `/employees/:employeeId/edit` | `ADMIN` | — | Admins only (not in sidebar) |
 | `/reports` (parent) | `ADMIN, SERVICE_DESK` | — | Admins and Service Desk |
 | `/reports/active-employees` | `ADMIN` | — | Admins only |

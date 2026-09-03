@@ -16,7 +16,12 @@
 
 import { State } from "@/types/types";
 import { BasicUserInfo, DecodedIDTokenPayload } from "@asgardeo/auth-spa";
-import { ADMIN_PRIVILEGE, LEAD_PRIVILEGE, SERVICE_DESK_PRIVILEGE, SnackMessage } from "@config/constant";
+import {
+  ADMIN_PRIVILEGE,
+  LEAD_PRIVILEGE,
+  SERVICE_DESK_PRIVILEGE,
+  SnackMessage,
+} from "@config/constant";
 import { createAsyncThunk, createSlice, PayloadAction } from "@reduxjs/toolkit";
 import { enqueueSnackbarMessage } from "@slices/commonSlice/common";
 import { RootState } from "@slices/store";

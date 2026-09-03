@@ -262,19 +262,17 @@ service http:InterceptableService / on new http:Listener(9090) {
             };
         }
 
+        // Personal information is not gated by the lead/subordinate relationship: a lead may see
+        // a subordinate's job record, but NIC, DOB, address and similar fields are restricted to
+        // admin or the employee themselves.
         boolean hasAdminAccess = authorization:checkPermissions([authorization:authorizedRoles.ADMIN_ROLE], userInfo.groups);
         boolean isSelf = employeeInfo != () && employeeInfo.workEmail == userInfo.email;
         if !hasAdminAccess && !isSelf {
-            boolean|error isSubordinate = database:isSubordinateOfLead(userInfo.email, employeeId);
-            if isSubordinate is error {
-                string customErr = string `Error occurred while checking lead authorization for ID: ${employeeId}`;
-                log:printError(customErr, isSubordinate, employeeId = employeeId);
-                return <http:InternalServerError>{body: {message: customErr}};
-            }
-            if !isSubordinate {
-                log:printWarn("User is not authorized to view this employee's information", invokerEmail = userInfo.email);
-                return <http:Forbidden>{body: {message: "You are not authorized to view this employee's information"}};
-            }
+            log:printWarn("User is not authorized to view this employee's personal information",
+                    invokerEmail = userInfo.email);
+            return <http:Forbidden>{
+                body: {message: "You are not authorized to view this employee's personal information"}
+            };
         }
 
         if employeeInfo is () {
@@ -3120,8 +3118,14 @@ service http:InterceptableService / on new http:Listener(9090) {
         //   designation, manager, status and dates through the sibling employee endpoint;
         //   history adds only *when* those changed, so withholding it would be inconsistent.
         // - Self gets the employee projection: no actionBy, no system rows.
-        boolean hasFullProjection = authorization:checkPermissions(
+        boolean hasAdminAccess = authorization:checkPermissions(
                 [authorization:authorizedRoles.ADMIN_ROLE], userInfo.groups);
+        boolean hasFullProjection = hasAdminAccess;
+
+        // Personal-info field changes (NIC, DOB, address, ...) are withheld from a lead's
+        // projection, same as the personal-info snapshot itself: a lead sees job-field history,
+        // not personal-field history, unless they are also admin.
+        boolean hasPersonalInfoAccess = hasFullProjection;
 
         if !hasFullProjection {
             // Two conditions, and both are required.
@@ -3186,6 +3190,9 @@ service http:InterceptableService / on new http:Listener(9090) {
                     body: {message: "You are not authorized to view this employee's history"}
                 };
             }
+
+            // Reaching here means the caller is viewing their own history.
+            hasPersonalInfoAccess = true;
         }
 
         database:EmploymentPeriod[]|error periods = database:getEmploymentPeriods(employeeId);
@@ -3256,7 +3263,7 @@ service http:InterceptableService / on new http:Listener(9090) {
 
         return {
             periods: periodResponses,
-            events: projectHistoryEvents(events, hasFullProjection),
+            events: projectHistoryEvents(events, hasFullProjection, hasPersonalInfoAccess),
             promotionsUnavailable: promotionsUnavailable
         };
     }

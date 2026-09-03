@@ -18,7 +18,7 @@
 const SOURCE_TABLE_EMPLOYEE_AUDIT = "employee_audit";
 
 # Source table name for personal_info_audit snapshots.
-const SOURCE_TABLE_PERSONAL_INFO_AUDIT = "personal_info_audit";
+public const SOURCE_TABLE_PERSONAL_INFO_AUDIT = "personal_info_audit";
 
 # Source table name for employee_additional_managers_audit snapshots.
 const SOURCE_TABLE_ADDITIONAL_MANAGERS_AUDIT = "employee_additional_managers_audit";

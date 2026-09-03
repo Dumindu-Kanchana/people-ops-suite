@@ -750,8 +750,8 @@ public isolated function parseCsvBytes(byte[] fileBytes) returns BulkEmployeeCsv
 # not see is absent from the payload rather than flagged for the client to hide, so the data
 # is not merely unrendered but never transmitted.
 #
-# The full projection is granted to ADMINs and to a lead viewing their own subordinate; the
-# reduced projection applies to someone viewing their own record.
+# The full projection is granted to ADMINs and to a lead viewing their own
+# subordinate; the reduced projection applies to someone viewing their own record.
 #
 # Under the reduced projection:
 # - `actionBy` is omitted from every event: an employee sees *that* their team changed, not
@@ -759,18 +759,25 @@ public isolated function parseCsvBytes(byte[] fileBytes) returns BulkEmployeeCsv
 # - Events made by system actors are dropped: migrations and scheduled jobs are operational
 #   noise that would read as unexplained changes to their own record.
 #
+# Independently of projection tier, `hasPersonalInfoAccess` decides whether events sourced from
+# the personal-info audit trail (NIC, DOB, address, ...) are included at all. A lead gets the
+# full projection for job-field events but not personal-info ones, since they cannot see the
+# subordinate's current personal info either; admin and self both get both.
+#
 # Leaver events (employee_status transitions and resignation reason) are returned in BOTH
 # projections. This is deliberate: the employee already knows they are leaving, and hiding the
 # transition would leave an unexplained gap at the end of their own timeline.
 #
 # + events - Derived history events, newest first
 # + hasFullProjection - True when the caller may see attribution and system rows
+# + hasPersonalInfoAccess - True when the caller may see personal-info field changes
 # + return - Events the caller is permitted to receive, newest first
-public isolated function projectHistoryEvents(database:HistoryEvent[] events, boolean hasFullProjection)
-        returns HistoryEventResponse[] {
+public isolated function projectHistoryEvents(database:HistoryEvent[] events, boolean hasFullProjection,
+        boolean hasPersonalInfoAccess) returns HistoryEventResponse[] {
 
     if hasFullProjection {
         return from database:HistoryEvent event in events
+            where hasPersonalInfoAccess || event.sourceTable != database:SOURCE_TABLE_PERSONAL_INFO_AUDIT
             select {
                 employeePkId: event.employeePkId,
                 'field: event.'field,
@@ -784,7 +791,7 @@ public isolated function projectHistoryEvents(database:HistoryEvent[] events, bo
     }
 
     return from database:HistoryEvent event in events
-        where !event.isSystem
+        where !event.isSystem && (hasPersonalInfoAccess || event.sourceTable != database:SOURCE_TABLE_PERSONAL_INFO_AUDIT)
         select {
             employeePkId: event.employeePkId,
             'field: event.'field,
